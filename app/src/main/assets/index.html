@@ -9,7 +9,8 @@
 *{box-sizing:border-box}
 body{margin:0;background:#020510;color:white;font-family:Arial;overflow:hidden}
 #scene{position:fixed;inset:0}
-header{position:absolute;top:15px;left:15px}
+header{position:absolute;top:15px;left:15px;pointer-events:none}
+header p{margin:4px 0 0;font-size:14px;opacity:.85}
 h1{font-size:21px;color:#75d9ff;margin:0}
 .panel{position:absolute;bottom:12px;left:10px;right:10px;background:#101c30ee;padding:12px;border-radius:15px}
 #planets{display:flex;gap:6px;overflow-x:auto;padding-bottom:10px}
@@ -34,7 +35,23 @@ const scene=new THREE.Scene();
 scene.background=new THREE.Color(0x020510);
 
 const camera=new THREE.PerspectiveCamera(60,innerWidth/innerHeight,.1,1000);
-camera.position.set(0,25,48);
+
+// Distância que faz o sistema inteiro caber na largura da tela
+function overviewDistance(){
+const half=THREE.MathUtils.degToRad(camera.fov/2);
+const hHalf=Math.atan(Math.tan(half)*camera.aspect);
+return 38/Math.tan(Math.min(half,hHalf))*0.85;
+}
+let zoomLevel=1;          // 1 = tudo visível, menor = mais perto
+let focus=null;           // planeta selecionado (ou null = visão geral)
+const lookTarget=new THREE.Vector3();
+const camGoal=new THREE.Vector3();
+function overviewPosition(out){
+const d=overviewDistance()*zoomLevel;
+return out.set(0,d*.55,d*.84);
+}
+overviewPosition(camera.position);
+camera.lookAt(0,0,0);
 
 const renderer=new THREE.WebGLRenderer({antialias:true});
 renderer.setSize(innerWidth,innerHeight);
@@ -90,7 +107,7 @@ new THREE.MeshBasicMaterial({color:0x52657c,side:THREE.DoubleSide})
 orbit.rotation.x=-Math.PI/2;
 scene.add(orbit);
 
-planets.push({group,mesh,angle:i*.8,distance:p[2]});
+planets.push({group,mesh,angle:i*.8,distance:p[2],size:p[1],name:p[0]});
 });
 
 const starGeometry=new THREE.BufferGeometry();
@@ -106,6 +123,8 @@ const b=document.createElement('button');
 b.textContent=p[0];
 b.onclick=()=>{
 document.getElementById('info').textContent=p[0]+': '+p[4];
+focus=planets[i];
+zoomBtn.textContent='🌞 Ver todos';
 };
 document.getElementById('planets').appendChild(b);
 });
@@ -116,8 +135,15 @@ running=!running;
 document.getElementById('pause').textContent=running?'⏸ Pausar':'▶ Continuar';
 };
 
-document.getElementById('zoom').onclick=()=>{
-camera.position.z=Math.max(12,camera.position.z-5);
+const zoomBtn=document.getElementById('zoom');
+zoomBtn.onclick=()=>{
+if(focus){
+focus=null;
+document.getElementById('info').textContent='Escolha um planeta!';
+}else{
+zoomLevel=zoomLevel>.4?zoomLevel*.7:1;
+}
+zoomBtn.textContent=zoomLevel>.4?'🔍 Aproximar':'🔭 Afastar';
 };
 
 function animate(){
@@ -125,14 +151,22 @@ requestAnimationFrame(animate);
 if(running){
 planets.forEach((p,i)=>{
 p.angle+=.002*(36/p.distance);
-p.group.position.set(
-Math.cos(p.angle)*p.distance,
-0,
-Math.sin(p.angle)*p.distance
-);
+p.group.rotation.y=p.angle;
 p.mesh.rotation.y+=.01;
 });
 }
+const wanted=new THREE.Vector3();
+if(focus){
+focus.mesh.getWorldPosition(wanted);
+const d=focus.size*6+4;
+camGoal.set(wanted.x*1.0+d*.4,d*.6,wanted.z+d);
+}else{
+wanted.set(0,0,0);
+overviewPosition(camGoal);
+}
+camera.position.lerp(camGoal,.06);
+lookTarget.lerp(wanted,.12);
+camera.lookAt(lookTarget);
 renderer.render(scene,camera);
 }
 animate();
