@@ -28,7 +28,13 @@ button.on{background:#2f6aa3;border-color:#75d9ff}
 #card.show{transform:none;opacity:1;pointer-events:auto}
 #card h2{margin:0 0 4px;font-size:20px;display:flex;align-items:center;gap:8px}
 #card .sub{font-size:13px;opacity:.8;margin-bottom:10px}
-#close{position:absolute;top:8px;right:8px;padding:4px 10px;font-size:16px}
+.cbtns{position:absolute;top:8px;right:8px;display:flex;gap:6px}
+.cbtns button{padding:4px 11px;font-size:16px}
+#card.mini{padding:10px 14px}
+#card.mini .sub,#card.mini .grid,#card.mini .fun{display:none}
+#card.mini h2{font-size:17px;margin:0}
+#card.mini #min{transform:rotate(180deg)}
+#min{transition:transform .3s}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .stat{background:#14243a;border-radius:10px;padding:7px 9px}
 .stat b{display:block;font-size:11px;font-weight:normal;opacity:.65;margin-bottom:2px}
@@ -42,7 +48,7 @@ button.on{background:#2f6aa3;border-color:#75d9ff}
 <div id="hint">☝ Arraste para girar • 🤏 Pinça para zoom • Toque num planeta</div>
 
 <div id="card">
-  <button id="close">✕</button>
+  <div class="cbtns"><button id="min">▾</button><button id="close">✕</button></div>
   <h2><span class="dot" id="cdot"></span><span id="cname"></span></h2>
   <div class="sub" id="cdesc"></div>
   <div class="grid" id="cgrid"></div>
@@ -126,7 +132,7 @@ function makeTexture(type,pal){
 function glowTexture(){
  const c=document.createElement('canvas');c.width=c.height=128;
  const g=c.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);
- gr.addColorStop(0,'rgba(255,220,120,1)');gr.addColorStop(.25,'rgba(255,170,40,.6)');gr.addColorStop(1,'rgba(255,120,0,0)');
+ gr.addColorStop(0,'rgba(255,220,120,1)');gr.addColorStop(.22,'rgba(255,170,40,.55)');gr.addColorStop(.5,'rgba(255,130,0,.06)');gr.addColorStop(1,'rgba(255,120,0,0)');
  g.fillStyle=gr;g.fillRect(0,0,128,128);return new THREE.CanvasTexture(c);
 }
 
@@ -205,7 +211,8 @@ function updateCamera(){
   target.y+radius*Math.cos(phi),
   target.z+radius*Math.sin(phi)*Math.cos(theta));
  // com a ficha aberta, empurra o planeta para a parte de cima da tela
- lookOffset+=((focus?radius*.32:0)-lookOffset)*.07;
+ const wantOff=!focus?0:(card.classList.contains('mini')?radius*.08:radius*.32);
+ lookOffset+=(wantOff-lookOffset)*.07;
  camera.lookAt(target.x,target.y-lookOffset,target.z);
 }
 
@@ -217,6 +224,7 @@ el.addEventListener('pointerdown',e=>{
  if(pointers.size===1)downInfo={x:e.clientX,y:e.clientY,t:performance.now(),moved:0};
  if(pointers.size===2){const [a,b]=[...pointers.values()];pinchStart=Math.hypot(a.x-b.x,a.y-b.y);zoomStart=zoomMul;downInfo=null;}
  hideHint();
+ if(card.classList.contains('show'))setMini(true);
 });
 el.addEventListener('pointermove',e=>{
  const p=pointers.get(e.pointerId);if(!p)return;
@@ -256,7 +264,7 @@ function select(b){
  document.getElementById('cdesc').textContent=d.desc;
  document.getElementById('cgrid').innerHTML=Object.entries(d.stats).map(([k,v])=>`<div class="stat"><b>${k}</b><span>${v}</span></div>`).join('');
  document.getElementById('cfun').textContent='💡 '+d.fun;
- card.classList.add('show');card.scrollTop=0;
+ card.classList.add('show');card.classList.remove('mini');card.scrollTop=0;
  document.querySelectorAll('#planets button').forEach(x=>x.classList.toggle('on',x.dataset.name===d.name));
 }
 function overview(){
@@ -264,6 +272,10 @@ function overview(){
  document.querySelectorAll('#planets button').forEach(x=>x.classList.remove('on'));
 }
 document.getElementById('close').onclick=overview;
+function setMini(on){card.classList.toggle('mini',on);}
+document.getElementById('min').onclick=e=>{e.stopPropagation();setMini(!card.classList.contains('mini'));};
+// tocar na ficha minimizada abre de novo
+card.addEventListener('click',e=>{if(card.classList.contains('mini')&&!e.target.closest('button'))setMini(false);});
 document.getElementById('overview').onclick=overview;
 
 bodies.forEach(b=>{
